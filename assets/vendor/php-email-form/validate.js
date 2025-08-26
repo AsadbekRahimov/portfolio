@@ -1,8 +1,9 @@
 /**
-* PHP Email Form Validation - v3.9
-* URL: https://bootstrapmade.com/php-email-form/
-* Author: BootstrapMade.com
-*/
+ * PHP Email Form Validation - v3.9 (Modified for JSON responses)
+ * URL: https://bootstrapmade.com/php-email-form/
+ * Author: BootstrapMade.com
+ * Modified for Telegram Bot integration
+ */
 (function () {
   "use strict";
 
@@ -16,7 +17,7 @@
 
       let action = thisForm.getAttribute('action');
       let recaptcha = thisForm.getAttribute('data-recaptcha-site-key');
-      
+
       if( ! action ) {
         displayError(thisForm, 'The form action property is not set!');
         return;
@@ -32,10 +33,10 @@
           grecaptcha.ready(function() {
             try {
               grecaptcha.execute(recaptcha, {action: 'php_email_form_submit'})
-              .then(token => {
-                formData.set('recaptcha-response', token);
-                php_email_form_submit(thisForm, action, formData);
-              })
+                  .then(token => {
+                    formData.set('recaptcha-response', token);
+                    php_email_form_submit(thisForm, action, formData);
+                  })
             } catch(error) {
               displayError(thisForm, error);
             }
@@ -55,25 +56,41 @@
       body: formData,
       headers: {'X-Requested-With': 'XMLHttpRequest'}
     })
-    .then(response => {
-      if( response.ok ) {
-        return response.text();
-      } else {
-        throw new Error(`${response.status} ${response.statusText} ${response.url}`); 
-      }
-    })
-    .then(data => {
-      thisForm.querySelector('.loading').classList.remove('d-block');
-      if (data.trim() == 'OK') {
-        thisForm.querySelector('.sent-message').classList.add('d-block');
-        thisForm.reset(); 
-      } else {
-        throw new Error(data ? data : 'Form submission failed and no error message returned from: ' + action); 
-      }
-    })
-    .catch((error) => {
-      displayError(thisForm, error);
-    });
+        .then(response => {
+          if( response.ok ) {
+            return response.text();
+          } else {
+            throw new Error(`${response.status} ${response.statusText} ${response.url}`);
+          }
+        })
+        .then(data => {
+          thisForm.querySelector('.loading').classList.remove('d-block');
+
+          try {
+            // Try to parse as JSON
+            const jsonResponse = JSON.parse(data);
+
+            if (jsonResponse.success === true) {
+              // Success case
+              thisForm.querySelector('.sent-message').classList.add('d-block');
+              thisForm.reset();
+            } else {
+              // Error case with message from server
+              throw new Error(jsonResponse.message || 'Form submission failed');
+            }
+          } catch (jsonError) {
+            // Fallback for non-JSON responses (like original 'OK')
+            if (data.trim() == 'OK') {
+              thisForm.querySelector('.sent-message').classList.add('d-block');
+              thisForm.reset();
+            } else {
+              throw new Error(data ? data : 'Form submission failed and no error message returned from: ' + action);
+            }
+          }
+        })
+        .catch((error) => {
+          displayError(thisForm, error);
+        });
   }
 
   function displayError(thisForm, error) {
